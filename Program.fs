@@ -118,18 +118,21 @@ let serialize (header: string[], content: Content[]) : string[] =
 
     Array.concat [ header; bodies ]
 
-
 [<EntryPoint>]
 let main argv =
+    match argv with
+    | [| source ; target |] ->
+        let content =  source |> (FileAccess.getFilesWithExtension "nc" ) |> Array.map (FileAccess.readTextFileAsLines >> parseFileContent)
+        let grouped = content |> Array.groupBy (fun x -> x.Header)
 
-    let content = argv |> Array.map (FileAccess.readTextFileAsLines >> parseFileContent)
-    let grouped = content |> Array.groupBy (fun x -> x.Header)
+        do printfn "Found %i header%s." grouped.Length (if grouped.Length = 1 then "" else "s")
 
-    do printfn "Found %i header%s." grouped.Length (if grouped.Length = 1 then "" else "s")
-
-    grouped |> Array.map serialize
-            |> Array.iteri (fun i x -> 
-                                        do printfn "File #%i" i
-                                        x |> Array.iter (fun y -> do printfn "%s" y))
-
-    0 // return an integer exit code
+        grouped |> Array.map serialize
+                |> Array.iteri (fun i content ->
+                    let file = sprintf "merged_%i.nc" i
+                    let path = FileAccess.combinePaths target file
+                    content |> FileAccess.writeTextToFile path)
+        0
+    | _ ->
+        do printfn "Please provide a source and target path."
+        128
