@@ -4,6 +4,8 @@ open System
 open System.Text.RegularExpressions
 open System
 
+let footer = [| "G00 Z0.0000"; "G00 Z0.0000"; "G00 X0Y0"; "M05" |]
+
 (*
     Matches the different combinations of coordinates. 
     G01 Z0.0000 =>
@@ -91,10 +93,17 @@ let regexLine (line: string) : Command =
         Unknown line
 
 let parseFileContent (content: string []) : Content =
-    let header = content |> Array.takeWhile(fun s -> s.StartsWith("G00") = false && s.StartsWith("G01") = false)
+    let notAMove (s: string) = (not (s.StartsWith("G00"))) && (s.StartsWith("G01"))
+    let header = content |> Array.takeWhile notAMove
     let body = content 
                |> Array.except header 
                |> Array.map (regexLine)
+    do body |> Array.Reverse
+    let body = body
+               |> Array.skipWhile (fun s -> match s with 
+                                            | Precise _ -> false 
+                                            | _ -> true)
+    do body |> Array.Reverse
 
     { Header = header; Body = body }
 
@@ -127,7 +136,8 @@ let main argv =
 
         do printfn "Found %i header%s." grouped.Length (if grouped.Length = 1 then "" else "s")
 
-        grouped |> Array.map serialize
+        let addfooter x = footer |> Array.append x
+        grouped |> Array.map (serialize >> addfooter)
                 |> Array.iteri (fun i content ->
                     let file = sprintf "merged_%i.nc" i
                     let path = FileAccess.combinePaths target file
