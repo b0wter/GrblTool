@@ -30,7 +30,7 @@ let moveCommandRegex = Regex("(G\d\d)\s(((X|Y|Z)(\d.\d*))?((\w)(\d.\d*))?)")
 (*
     Matches all (x, y, z) coordinates but no commands.
 *)
-let coordinateRegex =Regex("([X|Y|Z])(\d?\.?\d*)")
+let coordinateRegex =Regex("([X|Y|Z])(\d+\.?\d*)")
 
 type AbsolutePoint = {
     X: double
@@ -69,6 +69,7 @@ let regexLine (line: string) : Command =
     let regexCoordinates (s: string) : Point =
         let parts = coordinateRegex.Matches(s)
         let groups = parts |> Seq.map (fun x -> (x.Groups.[1].Value, x.Groups.[2].Value)) |> List.ofSeq
+        do printfn "Groups: %A" groups
         match groups with
         | [ ("X", (x: string)); ("Y", (y: string)) ] -> Absolute { X = Double.Parse(x); Y = Double.Parse(y) }
         | [ ("X", (d: string)) ] -> RelativeX { X = Double.Parse(d) }
@@ -77,16 +78,12 @@ let regexLine (line: string) : Command =
         | _ -> failwith "Number of match groups cannot be interpreted."
 
     if line.StartsWith("G0") then
-        let parts = moveCommandRegex.Match(line).Groups
-                    |> Seq.map (fun x -> x.Value)
-
         let goto = line.Substring(0, 3)
         let rest = line.Remove(0, 3);
         match(goto) with
         | "G00" -> Precise (rest |> regexCoordinates)
         | "G01" -> Fast (rest |> regexCoordinates)
         | _ -> failwith (sprintf "Unkown Goto command: %s" goto) 
-        
     else
         Unknown line
 
